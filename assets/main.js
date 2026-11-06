@@ -16,69 +16,60 @@
   syncDetails();
   desktop.addEventListener ? desktop.addEventListener('change', syncDetails) : desktop.addListener(syncDetails);
 
-  // Split hero headings into words (desktop only)
+  var root = document.documentElement;
+  if (reduce) root.classList.add('rm');
+
+  // Split hero headings into words, each sliding up from a mask (desktop only)
   if (desktop.matches && !reduce) {
     document.querySelectorAll('[data-split]').forEach(function (h) {
       var words = h.textContent.trim().split(/\s+/);
       h.setAttribute('aria-label', h.textContent.trim());
       h.innerHTML = words.map(function (w, i) {
-        return '<span class="w" aria-hidden="true" style="animation-delay:' + (80 + i * 70) + 'ms">' + w + '</span>';
+        return '<span class="w" aria-hidden="true"><span style="animation-delay:' + (0.02 + i * 0.06) + 's">' + w + '</span></span>';
       }).join(' ');
     });
   }
 
-  // Reveal on scroll
-  var revealEls = document.querySelectorAll('[data-reveal]');
+  // Stagger children of [data-stagger], then reveal on scroll
+  document.querySelectorAll('[data-stagger]').forEach(function (g) {
+    Array.prototype.forEach.call(g.children, function (c, i) { c.setAttribute('data-reveal', g.getAttribute('data-stagger') || 'up'); c.style.setProperty('--d', (i * 0.09) + 's'); });
+  });
+  var revealEls = document.querySelectorAll('[data-reveal], .steps li, .map');
   if (!reduce && 'IntersectionObserver' in window) {
     var ro = new IntersectionObserver(function (en) {
       en.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); } });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.12 });
     revealEls.forEach(function (el) { ro.observe(el); });
   } else {
     revealEls.forEach(function (el) { el.classList.add('in'); });
   }
+  // map towns pop in one after another
+  document.querySelectorAll('.map').forEach(function (m) {
+    m.querySelectorAll('.m-dot').forEach(function (d, i) { d.style.setProperty('--d', (0.6 + i * 0.07) + 's'); if (d.nextElementSibling) d.nextElementSibling.style.setProperty('--d', (0.65 + i * 0.07) + 's'); });
+  });
 
-  // Light parallax on the hero photo (desktop only)
-  var hp = document.querySelector('.hero-photo img');
-  if (hp && desktop.matches && !reduce) {
-    var ticking = false;
-    window.addEventListener('scroll', function () {
-      if (ticking) return; ticking = true;
-      requestAnimationFrame(function () {
-        var y = Math.min(window.scrollY, 700);
-        hp.style.transform = 'translate3d(0,' + (y * 0.06) + 'px,0)';
-        ticking = false;
-      });
-    }, { passive: true });
+  // Header gets compact + shadow on scroll
+  var hdr = document.querySelector('.site-header');
+  if (hdr) {
+    var onS = function () { hdr.classList.toggle('scrolled', window.scrollY > 12); };
+    onS(); window.addEventListener('scroll', onS, { passive: true });
   }
 
-  // Before / after cards: tap to flip, auto-flip a few seconds after they come into view
-  var cards = document.querySelectorAll('[data-ba]');
-  cards.forEach(function (card, i) {
+  // Before / after cards (same behavior as Cleanplicity)
+  document.querySelectorAll('[data-ba]').forEach(function (card, i) {
     var media = card.querySelector('.ba-media'), tag = card.querySelector('.ba-tag'), btns = card.querySelectorAll('.ba-toggle button');
     function set(after) {
       card.style.setProperty('--w', media.offsetWidth + 'px');
-      if (after && !card.classList.contains('after') && !reduce) {
-        card.classList.add('wiping');
-        setTimeout(function () { card.classList.remove('wiping'); }, 1150);
-      }
+      if (after && !card.classList.contains('after')) { card.classList.add('wiping'); setTimeout(function () { card.classList.remove('wiping'); }, 1150); }
       card.classList.toggle('after', after);
       tag.textContent = after ? 'After' : 'Before';
       btns.forEach(function (b) { b.setAttribute('aria-pressed', (b.dataset.v === 'a') === after ? 'true' : 'false'); });
     }
     btns.forEach(function (b) { b.addEventListener('click', function () { card._touched = true; set(b.dataset.v === 'a'); }); });
-    function flip() { card._touched = true; set(!card.classList.contains('after')); }
-    media.addEventListener('click', flip);
-    media.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); flip(); } });
-    if (!('IntersectionObserver' in window)) return;
-    var o = new IntersectionObserver(function (en) {
-      en.forEach(function (e) {
-        if (e.isIntersecting) {
-          o.disconnect();
-          setTimeout(function () { if (!card._touched) set(true); }, 1600 + i * 600);
-        }
-      });
-    }, { threshold: 0.6 });
+    media.addEventListener('click', function () { card._touched = true; set(!card.classList.contains('after')); });
+    media.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card._touched = true; set(!card.classList.contains('after')); } });
+    if (reduce || !('IntersectionObserver' in window)) return;
+    var o = new IntersectionObserver(function (en) { en.forEach(function (e) { if (e.isIntersecting) { o.disconnect(); setTimeout(function () { if (!card._touched) set(true); }, 900 + i * 450); } }); }, { threshold: .55 });
     o.observe(card);
   });
 
@@ -92,6 +83,7 @@
       spots.forEach(function (s) { s.classList.remove('show'); });
       var visible = Array.prototype.filter.call(spots, function (s) { return !s.classList.contains('deep') || cl.dataset.mode === 'deep'; });
       visible.forEach(function (s, k) { setTimeout(function () { s.classList.add('show'); }, reduce ? 0 : 90 * k); });
+      p.querySelectorAll('.cl-list li').forEach(function (li, k) { li.style.setProperty('--k', k); li.style.animation = 'none'; li.offsetHeight; li.style.animation = ''; });
     }
     tabs.forEach(function (t) {
       t.addEventListener('click', function () {
