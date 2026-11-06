@@ -58,7 +58,14 @@
   // Before / after cards (same behavior as Cleanplicity)
   document.querySelectorAll('[data-ba]').forEach(function (card, i) {
     var media = card.querySelector('.ba-media'), tag = card.querySelector('.ba-tag'), btns = card.querySelectorAll('.ba-toggle button');
+    var aImg = card.querySelector('.ba-a');
+    // make sure the "after" photo is downloaded and decoded before the wipe runs
+    function ready(fn) {
+      if (aImg.complete && aImg.naturalWidth) { (aImg.decode ? aImg.decode().catch(function(){}) : Promise.resolve()).then(fn); }
+      else { aImg.addEventListener('load', function () { (aImg.decode ? aImg.decode().catch(function(){}) : Promise.resolve()).then(fn); }, { once: true }); aImg.addEventListener('error', fn, { once: true }); }
+    }
     function set(after) {
+      if (after && !card.classList.contains('after') && !(aImg.complete && aImg.naturalWidth)) { ready(function () { set(after); }); return; }
       card.style.setProperty('--w', media.offsetWidth + 'px');
       if (after && !card.classList.contains('after')) { card.classList.add('wiping'); setTimeout(function () { card.classList.remove('wiping'); }, 1150); }
       card.classList.toggle('after', after);
